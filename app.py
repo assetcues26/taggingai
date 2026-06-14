@@ -1,17 +1,10 @@
-"""Vercel ASGI entrypoint for asset analysis."""
+"""FastAPI entrypoint for Vercel and local HTTP testing."""
 
 from __future__ import annotations
-
-import sys
-from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
-
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
 app = FastAPI(title="Tagging AI Asset Analysis")
 app.add_middleware(
@@ -23,7 +16,7 @@ app.add_middleware(
 
 
 class _HttpRequestAdapter:
-    """Minimal adapter so shared handler code accepts Vercel/FastAPI requests."""
+    """Minimal adapter so shared handler code accepts FastAPI requests."""
 
     def __init__(self, body: bytes, headers: dict[str, str]):
         self._body = body
@@ -44,6 +37,11 @@ def _azure_response_to_fastapi(azure_response) -> Response:
         headers=response_headers,
         media_type=azure_response.mimetype or "application/json",
     )
+
+
+@app.get("/")
+async def root() -> JSONResponse:
+    return JSONResponse({"status": "ok", "service": "tagging-ai"})
 
 
 @app.get("/api/asset_analysis")

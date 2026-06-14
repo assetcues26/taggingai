@@ -163,6 +163,13 @@ def parse_asset_analysis_from_body(body: bytes, content_type: str) -> ParsedAsse
     )
 
 
+def _get_content_type(headers: dict[str, str]) -> str:
+    for key, value in headers.items():
+        if key.lower() == "content-type":
+            return value
+    return ""
+
+
 def parse_asset_analysis_request(req: HttpRequestLike) -> ParsedAssetAnalysisRequest:
     """
     Parse POST /asset_analysis requests.
@@ -173,5 +180,5 @@ def parse_asset_analysis_request(req: HttpRequestLike) -> ParsedAssetAnalysisReq
       - barcodeimage: file (optional)
       - metadata fields as regular form fields (assetid, assetname, cost, etc.)
     """
-    content_type = req.headers.get("Content-Type", "")
+    content_type = _get_content_type(req.headers)
     return parse_asset_analysis_from_body(req.get_body(), content_type)

@@ -643,8 +643,7 @@ def call_gemini_with_retry(
 app = func.FunctionApp()
 
 
-@app.route(route="asset_analysis", auth_level=func.AuthLevel.ANONYMOUS)
-def asset_analysis(req: func.HttpRequest) -> func.HttpResponse:
+def process_asset_analysis(req: func.HttpRequest) -> func.HttpResponse:
     """
     Ultra-optimized asset analysis function with zero-failure guarantee and ASAP response times.
     Enhanced with comprehensive monitoring, caching, and error recovery.
@@ -1198,3 +1197,8 @@ def asset_analysis(req: func.HttpRequest) -> func.HttpResponse:
             "X-API-Calls-Hour": str(api_usage_tracker["hourly_calls"]),
         },
     )
+
+
+@app.route(route="asset_analysis", auth_level=func.AuthLevel.ANONYMOUS)
+def asset_analysis(req: func.HttpRequest) -> func.HttpResponse:
+    return process_asset_analysis(req)

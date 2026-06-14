@@ -84,6 +84,21 @@ def test_parse_asset_analysis_request_rejects_json_body():
         parse_asset_analysis_request(request)
 
 
+def test_parse_asset_analysis_request_supports_lowercase_content_type_header():
+    jpeg = _jpeg_bytes()
+    body, content_type = _build_multipart(
+        {"assetname": "Office Chair"},
+        {"assetimage": (jpeg, "image/jpeg", "asset.jpg")},
+    )
+    request = FakeHttpRequest(body, content_type)
+    request.headers = {"content-type": content_type}
+
+    parsed = parse_asset_analysis_request(request)
+
+    assert parsed.metadata["assetname"] == "Office Chair"
+    assert parsed.asset_image is not None
+
+
 def test_parse_asset_analysis_request_supports_metadata_json_field():
     jpeg = _jpeg_bytes()
     metadata = json.dumps({"assetname": "Office Chair", "company": "Generic"})

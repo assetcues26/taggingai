@@ -61,7 +61,18 @@ async def asset_analysis(request: Request) -> Response:
     body = await request.body()
     headers = {key: value for key, value in request.headers.items()}
 
-    from function_app import asset_analysis as run_asset_analysis  # noqa: PLC0415
+    try:
+        from function_app import process_asset_analysis  # noqa: PLC0415
 
-    azure_response = run_asset_analysis(_HttpRequestAdapter(body, headers))
-    return _azure_response_to_fastapi(azure_response)
+        azure_response = process_asset_analysis(_HttpRequestAdapter(body, headers))
+        if azure_response is None:
+            return JSONResponse(
+                {"success": False, "error": {"message": "Handler returned no response"}},
+                status_code=500,
+            )
+        return _azure_response_to_fastapi(azure_response)
+    except Exception as exc:
+        return JSONResponse(
+            {"success": False, "error": {"message": str(exc)}},
+            status_code=500,
+        )

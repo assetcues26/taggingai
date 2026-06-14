@@ -1,0 +1,69 @@
+"""Vercel ASGI entrypoint for asset analysis."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, Response
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+app = FastAPI(title="Tagging AI Asset Analysis")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
+
+
+class _HttpRequestAdapter:
+    """Minimal adapter so shared handler code accepts Vercel/FastAPI requests."""
+
+    def __init__(self, body: bytes, headers: dict[str, str]):
+        self._body = body
+        self.headers = headers
+
+    def get_body(self) -> bytes:
+        return self._body
+
+
+def _azure_response_to_fastapi(azure_response) -> Response:
+    body = azure_response.get_body()
+    payload = body if isinstance(body, (bytes, bytearray)) else str(body or "").encode("utf-8")
+    response_headers = dict(azure_response.headers or {})
+    response_headers.setdefault("Content-Type", azure_response.mimetype or "application/json")
+    return Response(
+        content=payload,
+        status_code=azure_response.status_code,
+        headers=response_headers,
+        media_type=azure_response.mimetype or "application/json",
+    )
+
+
+@app.get("/api/asset_analysis")
+async def asset_analysis_health() -> JSONResponse:
+    return JSONResponse(
+        {
+            "status": "ok",
+            "endpoint": "/api/asset_analysis",
+            "method": "POST",
+            "content_type": "multipart/form-data",
+        }
+    )
+
+
+@app.post("/api/asset_analysis")
+async def asset_analysis(request: Request) -> Response:
+    body = await request.body()
+    headers = {key: value for key, value in request.headers.items()}
+
+    from function_app import asset_analysis as run_asset_analysis  # noqa: PLC0415
+
+    azure_response = run_asset_analysis(_HttpRequestAdapter(body, headers))
+    return _azure_response_to_fastapi(azure_response)

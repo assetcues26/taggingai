@@ -21,7 +21,7 @@ filterwarnings = [
 ]
 
 [tool.coverage.run]
-source = ["function_app", "prompts", "image_utils", "request_parser", "gemini_content"]
+source = ["function_app", "prompts", "image_utils", "request_parser", "gemini_content", "name_description_validator"]
 omit = ["tests/*"]
 
 [tool.coverage.report]

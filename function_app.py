@@ -13,6 +13,7 @@ import google.generativeai as genai
 
 from gemini_content import build_gemini_content
 from image_utils import resize_image_if_needed
+from name_description_validator import apply_name_description_sanity_check
 from prompts import (
     GENERIC_SAFE_WORDS,
     MAX_PROMPT_LENGTH,
@@ -1028,6 +1029,13 @@ def process_asset_analysis(req: func.HttpRequest) -> func.HttpResponse:
 
         # Update output if we got a result
         if gemini_output:
+            gemini_output = apply_name_description_sanity_check(
+                user_asset_name=user_asset_name,
+                user_description=user_description,
+                image_analysis=image_analysis,
+                detected_asset=str(output.get("detectedAsset") or ""),
+                ai_result=gemini_output,
+            )
             output.update(gemini_output)
         else:
             # Attempt 3: SAFETY NET - Local Fallback for obvious generics

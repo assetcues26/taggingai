@@ -22,18 +22,15 @@ Final 4.o Code
 ## Project Overview
 
 This Azure Function provides intelligent asset analysis by combining:
-- **PostgreSQL Database**: Direct access to 2.5M master data records
-- **Gemini AI**: Smart recommendations and text analysis
-- **Advanced Caching**: Composite key caching (assetid + tagnumber)
+- **Gemini AI**: Vision analysis, validation, and recommendations
+- **Multipart image uploads**: Direct file upload (no base64 JSON)
 - **Cost Protection**: Multiple layers of API cost controls
 
 ### Key Features
 - Anonymous access (no authentication required for testing)
-- Composite cache key system (assetid + tagnumber)
 - Comprehensive cost protection (rate limits, token limits, circuit breakers)
-- PostgreSQL connection pooling for 2.5M records
 - Image processing with automatic resizing
-- Exact matching + fuzzy search capabilities
+- Phase 1 vision, Phase 1.5 name/description match, Phase 2 subcategory/model validation
 
 ### Current Deployment
 - **Resource Group**: v6-AI
@@ -45,38 +42,18 @@ This Azure Function provides intelligent asset analysis by combining:
 
 ## Architecture & Logic
 
-### Database Integration
+### Request Flow
 ```
-Azure Function -> PostgreSQL Connection Pool -> v6_ai_db.assets table (JSONB)
-```
-
-**Database Details:**
-- **Host**: 35.154.239.5:5432
-- **Database**: v6_ai_db
-- **Schema**: v6ai
-- **Table**: assets (JSONB format)
-- **Records**: ~2.5M master data entries
-
-### Cache Logic Flow
-```mermaid
-graph TD
- A[Request with assetid + tagnumber] --> B{Cache Key Exists?}
- B -->|Yes| C[Return Cached Result + Cache Hit Indicator]
- B -->|No| D[Fresh Analysis]
- D --> E[Database Query + Gemini AI]
- E --> F[Store in Cache]
- F --> G[Return Fresh Result]
+POST multipart/form-data -> Parse images + metadata -> Gemini Phase 1 (vision)
+-> Post-process (tag, cost, date) -> Gemini Phase 1.5 (name/description)
+-> Gemini Phase 2 (subcategory/make-model) -> JSON response
 ```
 
-**Cache Key Format**: `"assetid|tagnumber"`
-- Cache Hit: Same assetid AND same tagnumber
-- Cache Miss: Different assetid OR different tagnumber
-
-### Cost Protection Layers
-1. **Rate Limiting**: 150/min, 500/hour, 5000/day
-2. **Token Limits**: 100-200 tokens per Gemini call
-3. **Circuit Breaker**: Stops after 10 consecutive failures
-4. **Prompt Length**: Max 8000 characters input
+No database is used. All analysis is performed in-memory via Gemini API calls per request.
+1. **Rate Limiting**: In-memory limits per function instance
+2. **Token Limits**: Capped per Gemini call
+3. **Circuit Breaker**: Stops after consecutive failures
+4. **Prompt Length**: Max 20000 characters input
 5. **Retry Control**: Maximum 2 retries per call
 
 ---
@@ -126,9 +103,8 @@ winget install Git.Git
 ```
 
 ### Required Accounts & Keys
-- **Azure Account** with active subscription
+- **Azure Account** with active subscription (for Azure Functions deploy only)
 - **Gemini API Key** from Google AI Studio (https://makersuite.google.com/app/apikey)
-- **Database Access**: Pre-configured PostgreSQL server (35.154.239.5)
 
 ---
 
@@ -168,15 +144,6 @@ az account list --output table
 
 ### Environment Variables Setup
 
-#### Database Configuration (Pre-configured)
-```bash
-PGHOST=35.154.239.5
-PGPORT=5432
-PGDATABASE=v6_ai_db
-PGUSER=v6ai
-PGPASSWORD=7hr46f9pGLeX
-```
-
 #### Gemini API Key (Required)
 - Get your API key from: https://makersuite.google.com/app/apikey
 - This will be set in Azure App Settings (never commit to source control)
@@ -200,16 +167,10 @@ PGPASSWORD=7hr46f9pGLeX
 
 #### 2. Set Environment Variables (Required)
 ```powershell
-# Set your GEMINI API key and database credentials
+# Set your Gemini API key
 az functionapp config appsettings set --name v6-ai-validation-dev --resource-group v6-AI --settings `
  "GEMINI_API_KEY=your_actual_api_key_here" `
- "PGHOST=35.154.239.5" `
- "PGPORT=5432" `
- "PGDATABASE=v6_ai_db" `
- "PGUSER=v6ai" `
- "PGPASSWORD=7hr46f9pGLeX" `
- "DB_SCHEMA=v6ai" `
- "DB_TABLE=assets"
+ "GEMINI_MODEL_NAME=gemini-3.1-flash-lite"
 ```
 
 ### Manual Deployment (Step by Step)
@@ -443,14 +404,7 @@ az group list --query "[?name=='rg-masterdata-function']"
 az functionapp show --name masterdata-func-354302549 --resource-group rg-masterdata-function --query "state"
 ```
 
-#### 2. Database Connection Issues
-```bash
-# Test database connectivity (if accessible)
-# Check environment variables
-az functionapp config appsettings list --name masterdata-func-354302549 --resource-group rg-masterdata-function --query "[?name=='PGHOST' || name=='PGUSER']"
-```
-
-#### 3. Gemini API Errors
+#### 2. Gemini API Errors
 ```bash
 # Verify API key is set
 az functionapp config appsettings list --name masterdata-func-354302549 --resource-group rg-masterdata-function --query "[?name=='GEMINI_API_KEY']"
@@ -459,7 +413,7 @@ az functionapp config appsettings list --name masterdata-func-354302549 --resour
 az functionapp log tail --name masterdata-func-354302549 --resource-group rg-masterdata-function
 ```
 
-#### 4. Function Not Responding
+#### 3. Function Not Responding
 ```bash
 # Restart function app
 az functionapp restart --name masterdata-func-354302549 --resource-group rg-masterdata-function
@@ -503,21 +457,15 @@ SingleValidation-POC-Enhance/
 ### Key Files Explained
 
 #### `function_app.py` (Main Logic)
-- **Lines 1-50**: Imports and configuration
-- **Lines 51-70**: API limits and safety settings
-- **Lines 71-130**: Rate limiting and circuit breaker
-- **Lines 131-400**: Cache system implementation
-- **Lines 401-750**: Database connection and queries
-- **Lines 751-850**: Gemini API integration with retry logic
-- **Lines 851-1400**: Main HTTP function handler
+- HTTP handler and orchestration for Phase 1, 1.5, and 2
+- Gemini API integration with retry logic and cost protection
+- Image processing, tag matching, cost/date validation
 
 #### `requirements.txt` (Dependencies)
 ```
 azure-functions==1.18.0 # Azure Functions framework
 pillow==10.4.0 # Image processing
 google-generativeai==0.3.2 # Gemini AI API
-thefuzz==0.20.0 # Fuzzy string matching
-psycopg2-binary==2.9.9 # PostgreSQL driver
 ```
 
 #### `function.json` (Function Configuration)
@@ -706,11 +654,9 @@ az functionapp config appsettings set --name v6-ai-validation-dev --resource-gro
 
 ## License & Notes
 
-**Database**: Production PostgreSQL with 2.5M records (35.154.239.5)
 **AI Provider**: Google Gemini API
-**Cloud Platform**: Microsoft Azure Functions
-**Region**: East US
-**Runtime**: Python 3.12 on Linux Consumption Plan
+**Cloud Platform**: Microsoft Azure Functions / Vercel
+**Runtime**: Python 3.10+ (local), Python on Linux Consumption Plan (Azure)
 
 **Last Updated**: October 1, 2025
 **Function App**: v6-ai-validation-dev

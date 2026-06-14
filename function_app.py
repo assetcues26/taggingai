@@ -60,7 +60,6 @@ class StructuredLogger:
         "assetimage",
         "barcodeimage",
         "GEMINI_API_KEY",
-        "DB_PASSWORD",
     }
 
     def __init__(self, request_id, logger_name="asset_analysis"):

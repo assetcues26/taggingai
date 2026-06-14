@@ -1,0 +1,80 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "func",
+			"label": "func: host start",
+			"command": "host start",
+			"problemMatcher": "$func-python-watch",
+			"isBackground": true,
+			"dependsOn": "pip install"
+		},
+		{
+			"label": "pip install",
+			"type": "shell",
+			"osx": {
+				"command": "${config:azureFunctions.pythonVenv}/bin/python -m pip install -r requirements-dev.txt"
+			},
+			"windows": {
+				"command": "${config:azureFunctions.pythonVenv}\\Scripts\\python -m pip install -r requirements-dev.txt"
+			},
+			"linux": {
+				"command": "${config:azureFunctions.pythonVenv}/bin/python -m pip install -r requirements-dev.txt"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "lint: ruff check",
+			"type": "shell",
+			"dependsOn": "pip install",
+			"osx": {
+				"command": "${config:azureFunctions.pythonVenv}/bin/python -m ruff check ."
+			},
+			"windows": {
+				"command": "${config:azureFunctions.pythonVenv}\\Scripts\\python -m ruff check ."
+			},
+			"linux": {
+				"command": "${config:azureFunctions.pythonVenv}/bin/python -m ruff check ."
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "format: ruff format",
+			"type": "shell",
+			"dependsOn": "pip install",
+			"osx": {
+				"command": "${config:azureFunctions.pythonVenv}/bin/python -m ruff format ."
+			},
+			"windows": {
+				"command": "${config:azureFunctions.pythonVenv}\\Scripts\\python -m ruff format ."
+			},
+			"linux": {
+				"command": "${config:azureFunctions.pythonVenv}/bin/python -m ruff format ."
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "test: pytest",
+			"type": "shell",
+			"dependsOn": "pip install",
+			"osx": {
+				"command": "${config:azureFunctions.pythonVenv}/bin/python -m pytest"
+			},
+			"windows": {
+				"command": "${config:azureFunctions.pythonVenv}\\Scripts\\python -m pytest"
+			},
+			"linux": {
+				"command": "${config:azureFunctions.pythonVenv}/bin/python -m pytest"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "check: lint and test",
+			"dependsOn": [
+				"lint: ruff check",
+				"test: pytest"
+			],
+			"problemMatcher": []
+		}
+	]
+}

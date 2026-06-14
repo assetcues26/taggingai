@@ -1,0 +1,299 @@
+
+Analyze the provided images carefully. You will receive TWO types of images:
+1. ASSET IMAGE - Shows the full asset/equipment
+2. BARCODE IMAGE - Close-up of the barcode/asset tag sticker ONLY
+
+CRITICAL INSTRUCTION - DO NOT CONFUSE BARCODE STICKER WITH ASSET BRAND:
+- The BARCODE IMAGE shows a client company sticker with their logo (Americana, Cipla, TCS, etc.)
+- This sticker logo is NOT the asset manufacturer brand - it's just the client's tracking tag
+- ONLY look at the ASSET IMAGE (full asset photo) to identify the actual manufacturer brand
+- The asset body itself may have manufacturer branding like: Rheem, Dell, HP, LG, Samsung, Hitachi, Carrier, etc.
+- IGNORE any logos visible on the barcode sticker - they are irrelevant to asset identification
+
+Provide a JSON response with ONLY the following objective fields:
+
+1. "imageAnalysis": COMPREHENSIVE ASSET ANALYSIS (50 words) - Focus on the ASSET IMAGE (full asset photo):
+ - What is the asset? (laptop, chair, printer, AC unit, desk, machine, equipment, furniture, etc.)
+ - What does it look like? (color, size, shape, design features)
+ - Is there visible MANUFACTURER branding on the ASSET BODY? (Dell, HP, LG, Rheem, Hitachi, etc.)
+ - What's its condition? (new, used, damaged)
+ - Any visible features that identify its type or purpose?
+ - Location/setting visible in image?
+
+ DO NOT mention the barcode sticker logo in your analysis - focus ONLY on the actual asset and its manufacturer
+
+ CRITICAL: This analysis will be used for matching decisions. Include every detail you observe about the ASSET itself.
+
+ Example: "White split-type air conditioning unit mounted on ceiling. Commercial/industrial setting with tiled walls. Unit appears to be 1-1.5 ton capacity based on size. No visible manufacturer branding on unit body. Good condition with minor surface dust. Asset tracking barcode sticker visible on front panel."
+
+2. "imageReadability": "Y" if the asset is clearly visible in at least one image AND a barcode/tag number is readable in at least one image, otherwise "E". If barcode is unreadable, set to "E" (Error/Unreadable).
+
+3. "detectedAsset": Brief description of the asset visible in the ASSET IMAGE (not the barcode sticker):
+ - Identify the asset category (laptop, AC, chair, desk, printer, etc.)
+ - Include manufacturer brand ONLY if you can clearly see it on the ASSET BODY itself
+ - If no brand visible on asset -> just describe the asset type
+ - DO NOT use the logo from the barcode sticker as the brand
+
+ Examples:
+ - "Split-type air conditioning unit" (if no brand visible on AC body)
+ - "Dell laptop" (if you can see Dell logo on the laptop body)
+ - "Office desk with drawer" (if no brand visible)
+ - "LG air conditioner" (if you can see LG logo on the AC unit body)
+
+4. "detectedtagnumber": CRITICAL BARCODE READING (Zero Error Tolerance):
+
+ STEP 1 - VIRTUAL OPTICAL ZOOM & ROTATION CHECK:
+ 1. MULTI-ANGLE SCAN: The tag might be rotated 90 degrees, 180 degrees, or 270 degrees.
+ - ACTION: Mentally rotate the image until text is horizontal and readable.
+ - Do not give up if it looks upside down initially.
+ 2. VIRTUAL OPTICAL ZOOM (MACRO MODE):
+ - The tag might be small or far away.
+ - ACTION: Mentally CROP the background and ZOOM IN 5X-10X on the text.
+ - Treat this as a high-resolution macro shot.
+ 3. SURFACE CHECK: Is it curved? Mentally flatten the text.
+ 4. COUNT total characters visible (e.g., "1000063964" = 10 characters).
+ 5. Assess: lighting, focus, damage, angle, resolution - if ANY issue -> "UNREADABLE"
+
+ STEP 2 - READ CHARACTERS (Character-by-Character with Verification):
+ - Read EXACTLY as printed after confirming orientation
+ - READ TWICE: First pass to get sequence, second pass to verify each character
+ - PRESERVE ALL ZEROS: "00123" stays "00123" NOT "123"
+ - Count consecutive zeros carefully: "000000" = 6 zeros (count: 1,2,3,4,5,6)
+ - Keep all spaces/dashes: "A-123-B" stays "A-123-B"
+ - Distinguish in zoomed view: 0 vs O, 1 vs I vs l, 5 vs S, 8 vs B, 6 vs G, 2 vs Z, 3 vs 8
+ - VERIFY: Does output length match counted length from Step 1? If no -> recheck or "UNREADABLE"
+ - VERIFY: Read output backwards to catch transposition errors
+ - MAX LENGTH CHECK: If > 20 characters, it is NOT a valid asset tag. Return "UNREADABLE".
+
+ STEP 3 - UNREADABLE CONDITIONS (return "UNREADABLE" if ANY apply):
+ - Any character unclear/blurry/obscured after zoom
+ - Cannot determine orientation confidently
+ - Curved surface distorts text making any digit ambiguous
+ - Lighting/glare/shadow obscures any character
+ - Tag damaged/scratched/faded
+ - Resolution too low even after mental zoom
+ - Character count verification fails (mismatch between visual count and read output)
+ - Any uncertainty in digit distinction (3 vs 8, 5 vs 6, etc.)
+ - Length > 20 characters (We do not have tags longer than 20 digits)
+ - NEVER guess - accuracy > completion
+
+ Examples: Curved label->check distortion | Digit unclear->"UNREADABLE" | Count mismatch->"UNREADABLE"
+
+5. "tag_detection_reasoning": MANDATORY REASONING (Max 25 words):
+ - Format: "Rotated [Angle] degrees. Zoomed [Level]. Counted [X] digits. [Confidence]."
+ - Example: "Rotated 90 degrees. Zoomed 5x. Counted 10 digits. High confidence."
+ - Example: "Rotated 180 degrees. Zoomed 3x. Blur on last digit. Unreadable."
+
+6. "barcodeposition": A highly descriptive location of the barcode (max 25 words). Describe its position on the asset itself (e.g., "on the back panel, near the bottom edge, below the serial number label") AND its general position within the image frame (e.g., "center-right of the image").
+
+7. "damage_assessment": COMPREHENSIVE ASSET CONDITION ASSESSMENT - Provide a detailed yet concise assessment in 1-5 sentences (MAXIMUM 50 words total).
+
+ CRITICAL: This assessment is used for asset valuation, insurance, resale, and audit purposes. Be extremely thorough and precise.
+
+ REQUIRED STRUCTURE (must follow this exact order):
+
+ Sentence 1 - Overall Condition:
+ - Grade: Excellent / Good / Fair / Poor (word only, no letters or numbers)
+ - Brief justification for the grade
+
+ Sentence 2 - Color & Surface Condition:
+ - Primary color with detailed description (e.g., "Space Gray metallic with brushed finish", "Matte Black powder-coated", "Silver aluminum anodized")
+ - Color condition: original/intact, fading, discoloration, stains, yellowing, chipping, peeling
+ - Surface finish condition if visible
+
+ Sentence 3 - Physical Damage:
+ - List ALL visible damage with EXACT locations (top, bottom, left side, right side, front, back, corners, edges, lid, base, panel)
+ - Damage types: scratches (depth: surface/deep), dents, cracks, chips, scuffs, dings, breaks
+ - Size estimates when possible (e.g., "3cm scratch", "small dent")
+ - If NO damage: state "No visible damage, scratches, dents, or defects detected."
+
+ Sentence 4 - Stickers & Labels (ALWAYS include):
+ - Asset tracking tags: location and condition (always mention if present or absent)
+ - Warranty seals: location and condition (always mention if present or absent)
+ - Company logos: location and condition (mention if visible)
+ - Custom stickers: mention if visible with description
+ - Format: "Asset tag [location] [condition], Warranty seal [location] [condition], [Other labels if visible]"
+ - Conditions: intact, worn, peeling, faded, damaged, missing, partially removed
+
+ Sentence 5 - Usage Assessment & Notable Details:
+ - Overall wear pattern: minimal wear/normal office use/moderate wear/heavy use/extensive wear
+ - Specific wear areas: keyboard wear, touchpad wear, corner wear, edge wear
+ - Functionality indicators if visible: port conditions, hinge condition, screen condition
+ - Any other notable observations
+
+ EXAMPLES OF CORRECT OUTPUT:
+
+ Example 1 (Pristine Asset):
+ "Excellent condition with no signs of use or wear. Space Gray metallic with brushed aluminum finish, original factory color completely intact with uniform appearance. No visible damage, scratches, dents, scuffs, or defects detected across all surfaces. Asset tag bottom center intact and readable, warranty seal left side intact, company logo top lid center pristine. Like-new condition with no usage wear."
+
+ Example 2 (Good Condition):
+ "Good condition with minor cosmetic wear from regular use. Matte Black powder-coated finish, original color intact with very slight fading on top edges exposed to light. Minor surface scratches on top lid (2cm and 3cm length), small scuff marks on front-right and back-left corners. Asset tag bottom center intact, warranty seal right side intact, company logo top center good condition. Normal office use wear pattern."
+
+ Example 3 (Fair Condition):
+ "Fair condition with moderate wear from extended use. Silver aluminum anodized finish, noticeable color fading on front and top surfaces, minor paint chipping on edges. Multiple scratches on lid (5-7cm), small dent on back-left corner, scuffed edges throughout, keyboard area shows wear. Asset tag bottom worn but readable, warranty seal partially peeled, logo sticker faded. Heavy usage signs evident."
+
+ Example 4 (Poor Condition):
+ "Poor condition requiring attention or repair consideration. Dark Gray metallic finish with significant yellowing and discoloration, paint chipping on multiple edges and corners. Deep scratches across lid and base, cracked corner on back-right, major scuffs on all edges, visible dent near hinge. Asset tag bottom peeling and barely readable, warranty seal removed, company logo missing. Extensive wear throughout asset."
+
+ CRITICAL REQUIREMENTS:
+ - MAXIMUM 50 words total across all sentences
+ - Use both asset image AND barcode image for complete assessment
+ - Be extremely precise with locations (use compass directions: top, bottom, left, right, front, back)
+ - Always assess and mention: condition grade, color details, damage status, ALL visible stickers/labels, usage wear
+ - For pristine assets: expand with positive details to reach 25-35 words
+ - For damaged assets: prioritize damage details but don't exceed 40 words
+ - Count words carefully - quality over quantity within the limit
+
+8. "condition": ONE-LINE ASSET CONDITION ASSESSMENT based on the asset image.
+ - Provide a concise, accurate one-line description of the asset's physical condition.
+ - Focus on: overall state (good/fair/poor/excellent), visible damage, wear, cleanliness.
+ - Maximum 15 words.
+
+ Examples:
+ - "Good condition with minor scratches visible"
+ - "Damaged condition with physical wear detected"
+ - "Excellent condition, appears new and unused"
+ - "Fair condition with moderate wear and surface discoloration"
+ - "Poor condition with significant dents and corrosion"
+
+9. "estimatedcost": ESTIMATED ASSET COST IN INR (Indian Rupees) for the INDIAN MARKET.
+
+ CRITICAL: IMAGE IS THE PRIMARY SOURCE. You MUST analyze the image FIRST, then cross-reference with asset name and description.
+
+ **User-provided Asset Name**: "$user_asset_name"
+ **User-provided Description**: "$user_description"
+
+ STEP-BY-STEP ESTIMATION PROCESS:
+
+ IMPORTANT: "cost" means ACQUISITION COST - the price at which the asset was PURCHASED NEW.
+ Assets are photographed AFTER years of use, so they may show wear/damage. Do NOT reduce your estimate because the asset looks used or damaged in the image.
+ Always estimate the NEW purchase price in the Indian market.
+
+ STEP 1 - ANALYZE THE IMAGE (PRIMARY - 60% weight) - FOR IDENTIFICATION ONLY:
+ - What is the ACTUAL asset visible? (laptop, AC, phone, chair, printer, etc.)
+ - What BRAND is visible on the asset body? (HP, Dell, LG, Samsung, Apple, etc.)
+ - What is the SIZE/form factor? (15.6" laptop, 1.5 ton AC, small desk phone, etc.)
+ - What is the BUILD QUALITY? (premium metal body, budget plastic, industrial grade, etc.)
+ - What MODEL INDICATORS are visible? (stickers, labels, model numbers on the asset body)
+ - DO NOT factor in visible damage, scratches, wear, or age - estimate the NEW price only.
+
+ STEP 2 - CROSS-REFERENCE WITH TEXT (SECONDARY - 40% weight):
+ - Read the asset name AND description. Extract: brand, model number, specs (processor, GPU, RAM, storage, etc.)
+ - These specifications refine your estimate from Step 1.
+ - If image and text CONFLICT on the asset identity (e.g., image shows a Dell but text says HP), TRUST THE IMAGE.
+
+ STEP 3 - ESTIMATE NEW PURCHASE PRICE:
+ - Based on Steps 1+2, estimate the CURRENT Indian market price (new) in INR.
+ - Use Indian market pricing context: Amazon India, Flipkart, Croma, Reliance Digital, local dealer pricing.
+ - BRAND TIER MATTERS: Budget Indian brands (Beetel, Ant Esports, Frontech, Intex, iBall, Zebronics, Portronics, Quantum) are MUCH CHEAPER than premium brands (HP, Dell, Logitech, Apple, Samsung). Do NOT overestimate budget brand products.
+ - LOW-COST ITEMS: Many office assets cost under INR 2,000 (basic keyboards, mice, telephones, cables, small accessories). Do NOT default to higher prices for simple/basic items.
+ - Return ONLY a numeric value (integer, no currency symbols, no commas).
+ - If unable to estimate, return 0.
+
+ SPECIFICATION-DRIVEN PRICING EXAMPLES (Indian Market):
+
+ BUDGET / LOW-COST ITEMS (under INR 5,000):
+ - "Beetel landline telephone" -> 600
+ - "Beetel B77 corded phone" -> 700
+ - "Ant Esports wired keyboard" -> 500
+ - "Ant Esports MK1200 keyboard" -> 1200
+ - "Basic wired keyboard" -> 400
+ - "Basic wired mouse" -> 250
+ - "Zebronics wired mouse" -> 300
+ - "Frontech USB keyboard" -> 350
+ - "Logitech MK215 wireless keyboard mouse combo" -> 1500
+ - "Basic wall clock" -> 300
+ - "Desk calculator" -> 500
+ - "Table lamp" -> 800
+ - "Surge protector / power strip" -> 500
+ - "UPS 600VA basic" -> 2500
+ - "Whiteboard 3x4 feet" -> 1500
+
+ MID-RANGE ITEMS (INR 5,000 - INR 50,000):
+ - "Office chair basic" -> 5000
+ - "Office desk wooden" -> 8000
+ - "HP LaserJet printer basic" -> 12000
+ - "Hikvision biometric face+fingerprint device" -> 10000
+ - "Split AC 1.5 ton, 3-star" -> 35000
+ - "Samsung 32-inch LED monitor" -> 15000
+ - "Samsung 55-inch 4K Smart TV" -> 45000
+
+ HIGH-END ITEMS (INR 50,000+):
+ - "HP Pavilion GTX 1650Ti, Ryzen 5, 8GB RAM, 512GB SSD" -> 62000
+ - "HP Pavilion RTX 3050, Ryzen 7, 16GB RAM, 512GB SSD" -> 78000
+ - "Dell Latitude 5420, i5, 8GB RAM" -> 65000
+ - "MacBook Air M2, 8GB, 256GB" -> 99900
+ - "Split AC 2 ton, 5-star inverter" -> 55000
+ - "Herman Miller Aeron chair" -> 125000
+
+10. "estimatedyear": ESTIMATED MANUFACTURE/RELEASE YEAR of the asset.
+
+ CRITICAL: You MUST use ALL of the following inputs to estimate year. Different model/specs = DIFFERENT year.
+
+ **User-provided Asset Name**: "$user_asset_name"
+ **User-provided Description**: "$user_description"
+
+ INSTRUCTIONS:
+ - Read the asset name AND description CAREFULLY. Extract: model number, processor generation, GPU generation, technology indicators.
+ - The model number and component generation DIRECTLY determine the manufacture year.
+ - For electronics: GPU generation (GTX 1060=2016, GTX 1650Ti=2020, RTX 3050=2021, RTX 4060=2023), processor generation (i5-10th=2020, i5-12th=2022, Ryzen 5 4600H=2020, Ryzen 5 7600=2023)
+ - Return ONLY a 4-digit year (integer).
+ - If unable to estimate, return 0.
+
+ SPECIFICATION-DRIVEN YEAR EXAMPLES:
+ - "HP Pavilion with GTX 1060" -> 2016
+ - "HP Pavilion with GTX 1650Ti, Ryzen 5 4600H" -> 2020
+ - "HP Pavilion with RTX 3050, Ryzen 7 5800H" -> 2021
+ - "Dell Latitude 5420, i5-1135G7" -> 2021
+ - "iPhone 15 Pro" -> 2023
+ - "MacBook Air M2" -> 2022
+
+11. "estimatedmarketstatus": IS THIS ASSET MODEL STILL AVAILABLE IN THE INDIAN MARKET?
+
+ **User-provided Asset Name**: "$user_asset_name"
+ **User-provided Description**: "$user_description"
+
+ INSTRUCTIONS:
+ - Determine if this EXACT model (with these specifications) is still being actively sold/available for purchase in India.
+ - Consider: official manufacturer production status, availability on Amazon India, Flipkart, official brand stores.
+ - A model is "AVAILABLE" if it can still be purchased NEW from retailers or is still in production.
+ - A model is "DISCONTINUED" if it has been replaced by newer models and is NO LONGER sold new by retailers.
+ - Return ONLY one of: "AVAILABLE" or "DISCONTINUED"
+
+ Examples:
+ - "HP Pavilion with GTX 1650Ti, Ryzen 5 4600H" (released 2020, still sold on Flipkart) -> "AVAILABLE"
+ - "HP Pavilion with GTX 1060" (released 2016, replaced by newer models) -> "DISCONTINUED"
+ - "iPhone 13" (released 2021, still sold by Apple India) -> "AVAILABLE"
+ - "iPhone 8" (released 2017, no longer sold new) -> "DISCONTINUED"
+ - "Samsung Split AC 1.5 ton 2024 model" -> "AVAILABLE"
+
+12. "costcomparison": COST MATCH RESULT - Compare user-provided cost vs your estimated cost.
+
+ **User-provided Cost (INR)**: "$user_cost"
+
+ INSTRUCTIONS:
+ - If user cost is "(not provided)", return "NA"
+ - Compare the user-provided cost (INR) with your estimated cost (field 9).
+ - STRICT RULE: If the user cost deviates MORE than 20% from your estimated cost (either higher or lower), return "N".
+ - If the user cost is within 20% of your estimated cost, return "Y".
+ - Do NOT be lenient. Do NOT approve costs that are significantly different from your estimate.
+ - "Slightly high" or "slightly low" beyond 20% is still "N".
+ - Return ONLY one of: "Y", "N", or "NA"
+
+ EXAMPLES (showing correct Y/N decisions):
+ - Estimated: INR 65000, User: INR 70000 (7.7% diff) -> "Y"
+ - Estimated: INR 65000, User: INR 90000 (38% diff) -> "N"
+ - Estimated: INR 65000, User: INR 45000 (31% diff) -> "N"
+ - Estimated: INR 10000, User: INR 11500 (15% diff) -> "Y"
+ - Estimated: INR 10000, User: INR 15000 (50% diff) -> "N"
+ - Estimated: INR 600, User: INR 700 (16.7% diff) -> "Y"
+ - Estimated: INR 600, User: INR 1200 (100% diff) -> "N"
+
+13. "costcomparisonreasoning": COST COMPARISON REASONING (max 30 words).
+ - You MUST mention both amounts in INR format (e.g., "INR 10000", "INR 15000").
+ - Always mention the asset type in reasoning.
+ - If match: "User cost INR X is reasonable for [asset type], estimated around INR Y in Indian market."
+ - If mismatch: "Cost mismatch. User cost INR X does not align with [asset type], estimated around INR Y in Indian market."
+ - If not provided: "User cost not provided for comparison."
+
+Return the JSON object only with these fields and no additional text.

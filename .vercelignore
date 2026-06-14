@@ -1,0 +1,12 @@
+.venv
+.pytest_cache
+tests
+__pycache__
+local.settings.json
+.env
+.vscode
+.git
+.python_packages
+__azurite_db*__.json
+__blobstorage__
+__queuestorage__
